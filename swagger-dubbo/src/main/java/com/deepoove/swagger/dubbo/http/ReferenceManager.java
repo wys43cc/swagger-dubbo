@@ -2,25 +2,29 @@ package com.deepoove.swagger.dubbo.http;
 
 import com.alibaba.dubbo.common.utils.ReflectUtils;
 import com.alibaba.dubbo.config.ApplicationConfig;
-import com.alibaba.dubbo.config.annotation.Reference;
+import com.alibaba.dubbo.config.ReferenceConfig;
+import com.alibaba.dubbo.config.spring.ReferenceBean;
+import com.alibaba.dubbo.config.spring.beans.factory.annotation.ReferenceAnnotationBeanPostProcessor;
 import com.alibaba.dubbo.config.spring.extension.SpringExtensionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
-import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Field;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 public class ReferenceManager {
     
     private static Logger logger = LoggerFactory.getLogger(ReferenceManager.class);
 
     @SuppressWarnings("rawtypes")
-//    private static Collection<ReferenceBean> services;
+    private static Collection<ReferenceBean> services;
 
     private static Map<Class<?>, Object> interfaceMapProxy = new ConcurrentHashMap<Class<?>, Object>();
     private static Map<Class<?>, Object> interfaceMapRef = new ConcurrentHashMap<Class<?>, Object>();
@@ -34,31 +38,40 @@ public class ReferenceManager {
     public synchronized static ReferenceManager getInstance() {
         if (null != instance) return instance;
         instance = new ReferenceManager();
-//        services = new HashSet<>();
+        services = new HashSet<>();
         try {
             Field field = SpringExtensionFactory.class.getDeclaredField("contexts");
             field.setAccessible(true);
             Set<ApplicationContext> contexts = (Set<ApplicationContext>)field.get(new SpringExtensionFactory());
             for (ApplicationContext context : contexts){
-                Map<String, Object> beansWithAnnotation = context.getBeansWithAnnotation(Component.class);
-                beansWithAnnotation.values().stream().forEach(bean->{
-                    Map<String, Field> beanPropertyFields = ReflectUtils.getBeanPropertyFields(bean.getClass());
-                    beanPropertyFields.values().stream().forEach(field1 -> {
-                        Reference annotation = field1.getAnnotation(Reference.class);
-                        if(annotation!=null) {
+                context.getBeansOfType(ReferenceAnnotationBeanPostProcessor.class)
+                        .values().stream().forEach(referenceAnnotationBeanPostProcessor ->
+                        {
+                            Field referenceBeansCache = ReflectUtils.getBeanPropertyFields(ReferenceAnnotationBeanPostProcessor.class).get("referenceBeansCache");
+                            referenceBeansCache.setAccessible(true);
                             try {
-                                interfaceMapRef.put(field1.getClass(),field1.get(bean));
+                                ConcurrentMap<String, ReferenceBean<?>> stringReferenceBeanConcurrentMap = (ConcurrentMap<String, ReferenceBean<?>>) referenceBeansCache.get(referenceAnnotationBeanPostProcessor);
+                                services.addAll(stringReferenceBeanConcurrentMap.values());
                             } catch (IllegalAccessException e) {
                                 e.printStackTrace();
                             }
+
                         }
-                    });
-                });
-                if (application == null) application = context.getBean(ApplicationConfig.class);
+                );
+//                services.addAll(context.getBeansOfType(ReferenceBean.class).values());
             }
         } catch (Exception e) {
             logger.error("Get All Dubbo Service Error", e);
             return instance;
+        }
+        for (ReferenceBean<?> bean : services) {
+            interfaceMapRef.putIfAbsent(bean.getInterfaceClass(), bean.get());
+        }
+
+        //
+        if (!services.isEmpty()) {
+            ReferenceBean<?> bean = services.toArray(new ReferenceBean[services.size()])[0];
+			application = bean.getApplication();
         }
 
         return instance;
@@ -70,6 +83,18 @@ public class ReferenceManager {
             if (entry.getKey().getName().equals(interfaceClass)) { return entry.getValue(); }
         }
 
+        for (ReferenceBean<?> service : services) {
+            if (interfaceClass.equals(service.getInterfaceClass().getName())) {
+                ReferenceConfig<Object> reference = new ReferenceConfig<Object>();
+                reference.setApplication(service.getApplication());
+                reference.setRegistry(service.getRegistry());
+                reference.setRegistries(service.getRegistries());
+                reference.setInterface(service.getInterfaceClass());
+                reference.setVersion(service.getVersion());
+                interfaceMapProxy.put(service.getInterfaceClass(), reference.get());
+                return reference.get();
+            }
+        }
         return null;
     }
 
@@ -82,6 +107,9 @@ public class ReferenceManager {
     }
 
     @SuppressWarnings("rawtypes")
+    public Collection<ReferenceBean> getServices() {
+        return services;
+    }
 
     public ApplicationConfig getApplication() {
         return application;

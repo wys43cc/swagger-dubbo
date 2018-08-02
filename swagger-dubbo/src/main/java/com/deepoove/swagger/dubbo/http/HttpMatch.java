@@ -38,21 +38,13 @@ public class HttpMatch {
 		return ret.toArray(new Method[] {});
 	}
 
-	public Method[] findRefMethods(Method[] interfaceMethods, String operationId,
+	/*public Method[] findRefMethods(Method[] interfaceMethods, String operationId,
 			String requestMethod) {
 		List<Method> ret = new ArrayList<Method>();
 		for (Method method : interfaceMethods) {
 			Method m;
 			try {
 				m = refClass.getMethod(method.getName(), method.getParameterTypes());
-				final ApiOperation apiOperation = ReflectionUtils.getAnnotation(m,
-						ApiOperation.class);
-				String nickname = null == apiOperation ? null : apiOperation.nickname();
-				if (operationId != null) {
-					if (!operationId.equals(nickname)) continue;
-				} else {
-					if (StringUtils.isNotBlank(nickname)) continue;
-				}
 				if (requestMethod != null) {
 					String httpMethod = null == apiOperation ? null : apiOperation.httpMethod();
 					if (StringUtils.isNotBlank(httpMethod) && !requestMethod.equals(httpMethod))
@@ -69,7 +61,7 @@ public class HttpMatch {
 			}
 		}
 		return ret.toArray(new Method[] {});
-	}
+	}*/
 
 	public Method matchRefMethod(Method[] refMethods, String methodName, Set<String> keySet) {
 		if (refMethods.length == 0) { return null; }

@@ -47,7 +47,6 @@ import io.swagger.models.properties.MapProperty;
 import io.swagger.models.properties.Property;
 import io.swagger.models.properties.RefProperty;
 import io.swagger.util.BaseReaderUtils;
-import io.swagger.util.ParameterProcessor;
 import io.swagger.util.PathUtils;
 import io.swagger.util.PrimitiveType;
 import io.swagger.util.ReflectionUtils;
@@ -275,12 +274,7 @@ public class DubboReaderExtension implements ReaderExtension {
 		final ApiOperation apiOperation = ReflectionUtils.getAnnotation(method, ApiOperation.class);
 		if (apiOperation != null) {
 			tags.addAll(Collections2.filter(Arrays.asList(apiOperation.tags()),
-					new Predicate<String>() {
-						@Override
-						public boolean apply(String input) {
-							return StringUtils.isNotBlank(input);
-						}
-					}));
+					input -> StringUtils.isNotBlank(input)));
 		}
 
 		for (String tag : tags) {
@@ -303,7 +297,7 @@ public class DubboReaderExtension implements ReaderExtension {
 			final String name = header.name();
 			if (StringUtils.isNotEmpty(name)) {
 				if (responseHeaders == null) {
-					responseHeaders = new HashMap<String, Property>();
+					responseHeaders = new HashMap<>();
 				}
 				final Class<?> cls = header.response();
 				if (!ReflectionUtils.isVoid(cls)) {
@@ -441,9 +435,9 @@ public class DubboReaderExtension implements ReaderExtension {
 	private Parameter readParam(Swagger swagger, Type type,Class<?> cls, ApiParam param) {
 		PrimitiveType fromType = PrimitiveType.fromType(type);
 		final Parameter para = null == fromType ? new BodyParameter() : new QueryParameter();
-		Parameter parameter = ParameterProcessor.applyAnnotations(swagger, para,
+		Parameter parameter = null;/*ParameterProcessor.applyAnnotations(swagger, para,
 				type == null ? String.class : type, null == param ? new ArrayList<Annotation>()
-						: Collections.<Annotation> singletonList(param));
+						: Collections.<Annotation> singletonList(param));*/
 		if (parameter instanceof AbstractSerializableParameter) {
 			final AbstractSerializableParameter<?> p = (AbstractSerializableParameter<?>) parameter;
 			if (p.getType() == null) p.setType(null == fromType ? "string" : fromType.getCommonName());
@@ -456,7 +450,7 @@ public class DubboReaderExtension implements ReaderExtension {
 		return parameter;
 	}
 
-	@Override
+	/*@Override
 	public void applyParameters(ReaderContext context, Operation operation, Method method,
 			Method interfaceMethod) {
 		try {
@@ -465,11 +459,20 @@ public class DubboReaderExtension implements ReaderExtension {
 			Class<?>[] parameterTypes = method.getParameterTypes();
 			Annotation[][] parameterAnnotations = method.getParameterAnnotations();
 			Annotation[][] interfaceParamAnnotations = interfaceMethod.getParameterAnnotations();
-			for (int i = 0; i < genericParameterTypes.length; i++) {
 				applyParametersV2(context, operation,
 						null == parameterNames ? null : parameterNames[i], genericParameterTypes[i],parameterTypes[i],
 						parameterAnnotations[i], interfaceParamAnnotations[i]);
-			}
+		} catch (SecurityException e) {
+			e.printStackTrace();
+		}
+
+	}*/
+
+	@Override
+	public void applyParameters(ReaderContext context, Operation operation, Method method,
+								Method interfaceMethod) {
+		try {
+			ParameterProcessor.applyAnnotations(context.getSwagger(),operation,method);
 		} catch (SecurityException e) {
 			e.printStackTrace();
 		}
@@ -477,7 +480,7 @@ public class DubboReaderExtension implements ReaderExtension {
 	}
 
 	@Override
-	public void applyImplicitParameters(ReaderContext context, Operation operation, Method method) {
+	public void applyImplicitParameters(ReaderContext context, Operation operation, Method method) {/*
 		final ApiImplicitParams implicitParams = method.getAnnotation(ApiImplicitParams.class);
 		if (implicitParams != null && implicitParams.value().length > 0) {
 			for (ApiImplicitParam param : implicitParams.value()) {
@@ -486,15 +489,7 @@ public class DubboReaderExtension implements ReaderExtension {
 					operation.parameter(p);
 				}
 			}
-		}
-	}
-
-	private Parameter readImplicitParam(Swagger swagger, ApiImplicitParam param) {
-		PrimitiveType fromType = PrimitiveType.fromName(param.paramType());
-		final Parameter p = null == fromType ? new FormParameter() : new QueryParameter();
-		final Type type = ReflectionUtils.typeFromString(param.dataType());
-		return ParameterProcessor.applyAnnotations(swagger, p, type == null ? String.class : type,
-				Collections.<Annotation> singletonList(param));
+		}*/
 	}
 
 	@Override

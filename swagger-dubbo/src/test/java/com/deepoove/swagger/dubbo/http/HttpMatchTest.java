@@ -19,16 +19,16 @@ public class HttpMatchTest {
 	public void testFindInterfaceMethods(){
 		Method[] findInterfaceMethods = httpMatch.findInterfaceMethods("login");
 		Assert.assertEquals(findInterfaceMethods.length, 2);
-		
+
 		findInterfaceMethods = httpMatch.findInterfaceMethods("get");
         Assert.assertEquals(findInterfaceMethods.length, 2);
-		
+
 		findInterfaceMethods = httpMatch.findInterfaceMethods("test");
         Assert.assertEquals(findInterfaceMethods.length, 1);
 		
 	}
 	
-	@Test
+	/*@Test
 	public void testFindRefMethods() throws NoSuchMethodException, SecurityException{
 		Method[] findInterfaceMethods = httpMatch.findInterfaceMethods("login");
 		Assert.assertEquals(findInterfaceMethods.length, 2);
@@ -67,7 +67,7 @@ public class HttpMatchTest {
         params.add("id");
         matchRefMethod = httpMatch.matchRefMethod(findRefMethods, "get", params);
         Assert.assertEquals(matchRefMethod, InterfaceServiceImplTest.class.getDeclaredMethod("get", String.class));
-	} 
+	} */
 	
 
 }

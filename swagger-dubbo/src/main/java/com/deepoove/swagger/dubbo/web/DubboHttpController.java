@@ -1,13 +1,16 @@
 package com.deepoove.swagger.dubbo.web;
 
-import java.io.IOException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Type;
-import java.util.Map.Entry;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
+import com.deepoove.swagger.dubbo.http.HttpMatch;
+import com.deepoove.swagger.dubbo.http.ReferenceManager;
+import com.deepoove.swagger.dubbo.reader.NameDiscover;
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.swagger.annotations.Api;
+import io.swagger.util.Json;
+import io.swagger.util.PrimitiveType;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,19 +18,13 @@ import org.springframework.core.convert.support.DefaultConversionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 
-import com.deepoove.swagger.dubbo.http.HttpMatch;
-import com.deepoove.swagger.dubbo.http.ReferenceManager;
-import com.deepoove.swagger.dubbo.reader.NameDiscover;
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
-
-import io.swagger.annotations.Api;
-import io.swagger.util.Json;
-import io.swagger.util.PrimitiveType;
+import java.io.IOException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Type;
+import java.util.Map;
+import java.util.Map.Entry;
 
 @Controller
 @RequestMapping("${swagger.dubbo.http:h}")
@@ -44,21 +41,15 @@ public class DubboHttpController {
 	@Value("${swagger.dubbo.cluster:rpc}")
 	private String cluster = CLUSTER_RPC;
 
-	@RequestMapping(value = "/{interfaceClass}/{methodName}", produces = "application/json; charset=utf-8")
+	@PostMapping(value = "/{interfaceClass}/{methodName}", produces = "application/json; charset=utf-8")
 	@ResponseBody
 	public ResponseEntity<String> invokeDubbo(@PathVariable("interfaceClass") String interfaceClass,
-			@PathVariable("methodName") String methodName, HttpServletRequest request,
-			HttpServletResponse response) throws Exception {
-		return invokeDubbo(interfaceClass, methodName, null, request, response);
-	}
-
-	@RequestMapping(value = "/{interfaceClass}/{methodName}/{operationId}", produces = "application/json; charset=utf-8")
-	@ResponseBody
-	public ResponseEntity<String> invokeDubbo(@PathVariable("interfaceClass") String interfaceClass,
-			@PathVariable("methodName") String methodName,
-			@PathVariable("operationId") String operationId, HttpServletRequest request,
-			HttpServletResponse response) throws Exception {
+											  @PathVariable("methodName") String methodName,
+											  @RequestBody Map<String,Object> paramMap) throws Exception {
 		if (!enable) { return new ResponseEntity<String>(HttpStatus.NOT_FOUND); }
+
+		ObjectMapper mapper = new ObjectMapper();
+		mapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
 
 		Object ref = null;
 		Method method = null;
@@ -75,9 +66,9 @@ public class DubboHttpController {
 		Method[] interfaceMethods = httpMatch.findInterfaceMethods(methodName);
 
 		if (null != interfaceMethods && interfaceMethods.length > 0) {
-			Method[] refMethods = httpMatch.findRefMethods(interfaceMethods, operationId,
-					request.getMethod());
-			method = httpMatch.matchRefMethod(refMethods, methodName, request.getParameterMap().keySet());
+//			Method[] refMethods = httpMatch.findRefMethods(interfaceMethods, operationId,
+//					request.getMethod());
+			method = httpMatch.matchRefMethod(interfaceMethods, methodName, paramMap.keySet());
 		}
 		if (null == method) {
 		    logger.info("No Service Method FOUND.");
@@ -98,7 +89,7 @@ public class DubboHttpController {
                 return new ResponseEntity<String>(HttpStatus.NOT_FOUND);
             }
 		}
-		logger.debug("[Swagger-dubbo] Invoke dubbo service method:{},parameter:{}", method, Json.pretty(request.getParameterMap()));
+		logger.debug("[Swagger-dubbo] Invoke dubbo service method:{},parameter:{}", method, Json.pretty(paramMap.toString()));
 		if (null == parameterNames || parameterNames.length == 0) {
 			result = method.invoke(ref);
 		} else {
@@ -108,7 +99,7 @@ public class DubboHttpController {
 
 			for (int i = 0; i < parameterNames.length; i++) {
 				Object suggestPrameterValue = suggestPrameterValue(parameterTypes[i],
-						parameterClazz[i], request.getParameter(parameterNames[i]));
+						parameterClazz[i], StringUtils.removeEnd(StringUtils.removeStart(mapper.writeValueAsString(paramMap.get(parameterNames[i])),"\""),"\""));
 				args[i] = suggestPrameterValue;
 			}
 			result = method.invoke(ref, args);

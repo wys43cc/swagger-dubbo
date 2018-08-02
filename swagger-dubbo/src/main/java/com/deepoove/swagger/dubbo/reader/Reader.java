@@ -67,18 +67,13 @@ public class Reader {
 	public static void read(Swagger swagger, Map<Class<?>, Object> interfaceMapRef,
 			String httpContext) {
 		final Reader reader = new Reader(swagger);
-		List<Entry<Class<?>, Object>> arrayList = new ArrayList<Entry<Class<?>, Object>>(interfaceMapRef.entrySet());
-		Collections.sort(arrayList, new Comparator<Entry<Class<?>, Object>>() {
-			@Override
-			public int compare(Entry<Class<?>, Object> o1, Entry<Class<?>, Object> o2) {
-				return o1.getKey().getSimpleName().compareTo(o2.getKey().getSimpleName());
-			}
-		});
+		List<Entry<Class<?>, Object>> arrayList = new ArrayList<>(interfaceMapRef.entrySet());
+		Collections.sort(arrayList, Comparator.comparing(o -> o.getKey().getSimpleName()));
 		for (Entry<Class<?>, Object> entry : arrayList) {
 			final ReaderContext context = new ReaderContext(swagger,
 					entry.getValue().getClass(), entry.getKey(), httpContext, null, false,
-					new ArrayList<String>(), new ArrayList<String>(), new ArrayList<String>(),
-					new ArrayList<Parameter>());
+					new ArrayList<>(), new ArrayList<>(), new ArrayList<>(),
+					new ArrayList<>());
 			reader.read(context);
 		}
 	}
@@ -92,11 +87,7 @@ public class Reader {
 			readSwaggerConfig(swaggerDefinition);
 		}
 		List<Method> interfaceMethodList = Arrays.asList(context.getInterfaceCls().getMethods());
-		Collections.sort(interfaceMethodList, new Comparator<Method>() {
-			@Override
-			public int compare(Method o1, Method o2) {
-				return o1.getName().compareTo(o2.getName());
-			}});
+		Collections.sort(interfaceMethodList, Comparator.comparing(Method::getName));
 		Map<Method, Method> serviceMethods = new LinkedHashMap<Method, Method>();
 		for (Method method : interfaceMethodList) {
 			if (!ReflectionUtils.isOverriddenMethod(method, context.getCls())) {
